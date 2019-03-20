@@ -10,12 +10,14 @@ import plotly
 import plotly.plotly as py
 import plotly.graph_objs as go
 import plotly.dashboard_objs as dashboard
+from   plotly import tools
 
 import datetime
 import json
 import random
 import re
 import csv
+import math
 
 
 
@@ -70,11 +72,12 @@ RELEASES_OPTIONS = [
 
 
 OPERATIONS_OPTIONS = [
-    {'label': 'file_desc()',    'value': 'shape'},
-    {'label': 'top_user()',     'value': 'top' },
-    {'label': 'top_answer()',   'value': 'top_answer' },
-    {'label': 'top_topics()',   'value': 'top_topics' },
-    {'label': 'count_nulls()',  'value': 'count_nulls' },
+    {'label': 'DESC File',      'value': 'shape'},
+    {'label': 'TOP Users',      'value': 'top' },
+    {'label': 'TOP Answers',    'value': 'top_answer' },
+    {'label': 'TOP Topics',     'value': 'top_topics' },
+    {'label': 'NULL Values',    'value': 'count_nulls' },
+    {'label': 'DISTR Values',   'value': 'histo' },
 ]
 
 
@@ -90,44 +93,22 @@ def MDfy(v):
     return re.sub(rex, '', v, flags=re.M)
 
 
-def textArea(value):
-    return dcc.Textarea(
-        value=value,
-        style={'width': '100%'}
-    )
-    
 
-
-def md_file_desc(_file, df):
-    
-    return MDfy('''
-        **{}** 
+def desc(df, total):
+    cols  = [ '{}. {}'.format(str(i+1), str(df.columns.values[i])) for i in range(len(df.columns.values))]    
+    return dcc.Markdown(MDfy('''
         
-        {}
+        Release: {} recs
         
-        _{} recs x {} cols_
+        File: **{}** recs x **{}** cols  
         
-    ''').format(_file, ', '.join(list(df.columns.values)), df.shape[0], df.shape[1] )
-    
-
-
-
-def md_nulls(_file, df):
-        
-    nulls=[]
-    for col in df.columns:
-        n_count = df[ df[col].isnull() ].shape[0]
-        tmp = (col, n_count, n_count/df[col].shape[0])
-        nulls.append(tmp)
-    
-    s = ''.join(['{}: {} ({}%) \n\n'.format(n[0], n[1], round(n[2], 2) ) for n in nulls])
-
-    return MDfy('''
-        **{}** 
-        
-        {}
-        
-    ''').format(_file, s)
+        {}  
+    ''').format( 
+    	total,
+    	df.shape[0], 
+    	df.shape[1],
+    	'\n\n'.join(cols) 
+    ))
     
 
 
@@ -163,7 +144,188 @@ def table(df):
         },        
     )
     
+
+def nulls_table(df):
+	data = []
+	for col in df.columns:
+		nulls = df[df[col].isnull()].shape[0]
+		ratio = round( nulls/df[col].shape[0], 2) 
+		data.append( (col, nulls, ratio) )
+	
+	return table( pd.DataFrame(data, columns=['Attribute', 'Nulls', 'Ratio (%)']) )
+
+	
+
+
+def histogram(df, att):
+    return go.Figure(
+        data=[go.Histogram(
+            x=list(df[att]),
+            nbinsx=20,
+            name=att
+        )],
+        layout=go.Layout(
+            title=att,
+            showlegend=False,
+            autosize=True,
+            margin=go.layout.Margin(
+                l=50,
+                r=50,
+                b=100,
+                t=100,
+                pad=4,
+                autoexpand=True
+            ),            
+        )
+    )
+
+
+
+def tab(df):
+    cols  = list(df.columns.values)
+    rows  = []
+    for i in range(0, len(cols), 2):  
+        rows.append(
+            html.Div([
+                dcc.Graph(className='six columns', figure=histogram(df, cols[i])),
+                dcc.Graph(className='six columns', figure=histogram(df, cols[i+1]) if i+1 < len(cols) else None)
+            ], className='row'),
+        )
+        
+    return rows
+        
+
+
+
+
+RELEASES_FILES_TABS = {
+
+    'R1' : {
+        'Votes' :   tab(RELEASES_FILES_DATAFRAMES['R1']['Votes']),
+        'Badges':   tab(RELEASES_FILES_DATAFRAMES['R1']['Badges']),
+        'Comments': tab(RELEASES_FILES_DATAFRAMES['R1']['Comments']),
+        'Posts':    tab(RELEASES_FILES_DATAFRAMES['R1']['Posts']),
+        'Users':    tab(RELEASES_FILES_DATAFRAMES['R1']['Users']),
+    },
+
+    'R2' : {
+        'Votes' :   tab(RELEASES_FILES_DATAFRAMES['R2']['Votes']),
+        'Badges':   tab(RELEASES_FILES_DATAFRAMES['R2']['Badges']),
+        'Comments': tab(RELEASES_FILES_DATAFRAMES['R2']['Comments']),
+        'Posts':    tab(RELEASES_FILES_DATAFRAMES['R2']['Posts']),
+        'Users':    tab(RELEASES_FILES_DATAFRAMES['R2']['Users']),
+    },
+
+    'R3' : {
+        'Votes' :   tab(RELEASES_FILES_DATAFRAMES['R3']['Votes']),
+        'Badges':   tab(RELEASES_FILES_DATAFRAMES['R3']['Badges']),
+        'Comments': tab(RELEASES_FILES_DATAFRAMES['R3']['Comments']),
+        'Posts':    tab(RELEASES_FILES_DATAFRAMES['R3']['Posts']),
+        'Users':    tab(RELEASES_FILES_DATAFRAMES['R3']['Users']),
+    },
+
+}
+
+'''
+RELEASES_FILES_TABS = {
+
+    'R1' : {
+        'Votes' :   tab(RELEASES_FILES_DATAFRAMES['R1']['Votes']),
+        'Badges':   tab(RELEASES_FILES_DATAFRAMES['R1']['Badges']),
+        'Comments': tab(RELEASES_FILES_DATAFRAMES['R1']['Comments']),
+        'Posts':    tab(RELEASES_FILES_DATAFRAMES['R1']['Posts']),
+        'Users':    tab(RELEASES_FILES_DATAFRAMES['R1']['Users']),
+    },
+}
+'''
+
+
+MD_TEXT = {
+    
+    'histo': MDfy(
+    ''' # Read csv file
+        df = pd.read_csv('VOTES_jan-01-02_2018.csv')
+        
+        # Create histogram for each column
+        for col in df.columns:
+        	Histogram( df[col] )'''
+    ),
+    
+    
+    'nulls': MDfy(
+    ''' # Read csv file
+        df   = pd.read_csv('POSTS_jan-01-02_2018.csv')
+        data = []
+        
+        # Compute NULLs and NULLs ratio for each dataframe' column  
+        for col in df.columns:
+        	sel   = df[col].isnull()         # Identify NULLs
+        	nulls = df[sel].shape[0]         # Count NULLs
+        	ratio = nulls/df[col].shape[0]   # NULLs / column size
+        	data.append( (col, nulls, ratio) )
+
+        Table( pd.DataFrame(data) )'''	
+    ),
+    
+    
+    'top_topics': MDfy(
+    '''# Read csv file
+       df = pd.read_csv('POSTS_jan-01-02_2018.csv')
+       
+       # Select relevant columns
+       df = df[ ['Tags', 'ViewCount'] ]
+       
+       # Group and aggregate
+       df = df.groupby('Tags').sum()
+       
+       Table(df)'''	
+    ),
+    
+    
+    'top_answer': MDfy(
+    '''# Read csv files
+       df1 = pd.read_csv('VOTES_jan-01-02_2018.csv')
+       df2 = pd.read_csv('COMMENTS_jan-01-02_2018.csv')
+       
+       # Join VOTES and COMMENTS belonging to the same POST ('PostId')
+       df3 = pd.merge(df1, df2, on='PostId')
+       
+       # Group and count 
+       df = df.groupby('PostId').size()
+       
+       Table(df)'''	
+    ),    
  
+ 
+     'top_user': MDfy(
+    '''# Read csv files
+       df = pd.read_csv('USERS_jan-01-02_2018.csv')
+       
+       # Select relevant fields
+       df = df[['Id','Reputation','Views','UpVotes','DownVotes','DisplayName']]
+       
+       # Sort 
+       df = df.sort_values(by='Reputation')
+       
+       Table(df)'''	
+    ),    
+     
+ 
+      'desc': MDfy(
+    '''# Read csv files
+       df = pd.read_csv('USERS_jan-01-02_2018.csv')
+       
+       # Num records x columns
+       df.shape[0], df.shape[1]
+       
+       # Columns names
+       list(df.columns.values)'''	
+    ),   
+        
+    
+}
+        
+    
 
 
 
@@ -179,7 +341,7 @@ layout = html.Div([
     
     dcc.Markdown('# Exploring Stackoverflow Releases'),
     html.Div([ 
-        dcc.Markdown('## --'),
+        dcc.Markdown(''),
     ], style={'margin-bottom': '30'}),
     
     html.Div([
@@ -187,12 +349,12 @@ layout = html.Div([
         html.Div(className='three columns', children=[
             dcc.Markdown('**Release**'),
             dcc.RadioItems(id='release', options=RELEASES_OPTIONS, value='R1', style={'margin-bottom': '20'}),
-            dcc.Markdown('**Operations**'),
+            dcc.Markdown('**Analytics Pipelines**'),
             dcc.RadioItems(id='operation', options=OPERATIONS_OPTIONS, value='shape'), 
         ]),
         
         html.Div(className='nine columns', children=[
-            html.Div(id='output-raw',    children='[]', ),
+            html.Div(id='output-raw',      children='[]', ),
         ]),
     
     ], className='row')
@@ -218,15 +380,21 @@ layout = html.Div([
 def onOperationSelected(operation, release):
     
     if operation == 'shape':
-        md = ''
-        md+= md_file_desc('Votes',    RELEASES_FILES_DATAFRAMES[release]['Votes'])
-        md+= md_file_desc('Badges',   RELEASES_FILES_DATAFRAMES[release]['Badges'])
-        md+= md_file_desc('Comments', RELEASES_FILES_DATAFRAMES[release]['Comments'])
-        md+= md_file_desc('Posts',    RELEASES_FILES_DATAFRAMES[release]['Posts'])
-        md+= md_file_desc('Users',    RELEASES_FILES_DATAFRAMES[release]['Users'])    
-
-        return html.Div(children=[
-            dcc.Markdown(md),
+        
+        total = 0
+        for k, df in RELEASES_FILES_DATAFRAMES[release].items():
+            total += df.shape[0]
+        
+        return html.Div([
+            dcc.Markdown('**Code Behind**'),
+            dcc.Textarea(value=MD_TEXT['desc'], style={'width': '100%', 'height':50}),
+            dcc.Tabs(id="tabs", children=[
+                dcc.Tab(label='Votes',    children=desc(RELEASES_FILES_DATAFRAMES[release]['Votes'], total)),
+                dcc.Tab(label='Badges',   children=desc(RELEASES_FILES_DATAFRAMES[release]['Badges'], total)),
+                dcc.Tab(label='Comments', children=desc(RELEASES_FILES_DATAFRAMES[release]['Comments'], total)),
+                dcc.Tab(label='Posts',    children=desc(RELEASES_FILES_DATAFRAMES[release]['Posts'], total)),
+                dcc.Tab(label='Users',    children=desc(RELEASES_FILES_DATAFRAMES[release]['Users'], total)),
+            ])
         ])
         
     
@@ -234,8 +402,10 @@ def onOperationSelected(operation, release):
         df = RELEASES_FILES_DATAFRAMES[release]['Users']
         df = df[['Id','Reputation','Views','UpVotes','DownVotes','DisplayName']]
         df = df.sort_values(by='Reputation', ascending=False)
+        
         return html.Div(children=[
-            dcc.Markdown('Projection(**USERS**) => Sort'),
+			dcc.Markdown('**Code Behind**'),
+            dcc.Textarea(value=MD_TEXT['top_user'], style={'width': '100%', 'height':50}),               
             table(df)
         ])
         
@@ -250,8 +420,8 @@ def onOperationSelected(operation, release):
         df3 = df3.sort_values(by='Counts', ascending=False)
 
         return html.Div(children=[
-            dcc.Markdown('_Answer popularity= votes + comments_'),
-            dcc.Markdown('Join(**Votes**, **Comments**, on=PostId) => GroupBy(PostId) => count(group) '),
+			dcc.Markdown('**Code Behind**'),
+            dcc.Textarea(value=MD_TEXT['top_answer'], style={'width': '100%', 'height':50}),         
             table(df3)        
         ])
         
@@ -261,30 +431,46 @@ def onOperationSelected(operation, release):
         df = df[['Tags', 'ViewCount']].groupby('Tags').sum()
         df['Tags'] = df.index.values
         df = df.sort_values(by='ViewCount', ascending=False)
-        
-        return html.Div(children=[      
+        return html.Div(children=[
+            dcc.Markdown('**Code Behind**'),
+            dcc.Textarea(value=MD_TEXT['top_topics'], style={'width': '100%', 'height':50}),
             table(df) 
         ])
     
     
+    
     if operation == 'count_nulls':
-        md = ''
-        md+= md_nulls('Votes',    RELEASES_FILES_DATAFRAMES[release]['Votes'])
-        md+= md_nulls('Badges',   RELEASES_FILES_DATAFRAMES[release]['Badges'])
-        md+= md_nulls('Comments', RELEASES_FILES_DATAFRAMES[release]['Comments'])
-        md+= md_nulls('Posts',    RELEASES_FILES_DATAFRAMES[release]['Posts'])
-        md+= md_nulls('Users',    RELEASES_FILES_DATAFRAMES[release]['Users'])    
-
-        return html.Div(children=[
-            dcc.Markdown(md),
+        return html.Div([
+            dcc.Markdown('**Code Behind**'),
+            dcc.Textarea(value=MD_TEXT['nulls'], style={'width': '100%', 'height':50}),
+            dcc.Tabs(id="tabs", children=[
+                dcc.Tab(label='Votes',    children=nulls_table(RELEASES_FILES_DATAFRAMES[release]['Votes'])),
+                dcc.Tab(label='Badges',   children=nulls_table(RELEASES_FILES_DATAFRAMES[release]['Badges'])),
+                dcc.Tab(label='Comments', children=nulls_table(RELEASES_FILES_DATAFRAMES[release]['Comments'])),
+                dcc.Tab(label='Posts',    children=nulls_table(RELEASES_FILES_DATAFRAMES[release]['Posts'])),
+                dcc.Tab(label='Users',    children=nulls_table(RELEASES_FILES_DATAFRAMES[release]['Users'])),
+            ])
         ])
             
-        
+            
+
+
+    if operation == 'histo':
+        return html.Div([
+            dcc.Markdown('**Code Behind**'),
+            dcc.Textarea(value=MD_TEXT['histo'], style={'width': '100%', 'height':50}),
+            dcc.Tabs(id="tabs", children=[
+                dcc.Tab(label='Votes',    children=RELEASES_FILES_TABS[release]['Votes']),
+                dcc.Tab(label='Badges',   children=RELEASES_FILES_TABS[release]['Badges']),
+                dcc.Tab(label='Comments', children=RELEASES_FILES_TABS[release]['Comments']),
+                dcc.Tab(label='Posts',    children=RELEASES_FILES_TABS[release]['Posts']),
+                dcc.Tab(label='Users',    children=RELEASES_FILES_TABS[release]['Users']),
+            ])
+        ])
+
+ 
+    
     return 'xxx'
-
-
-
-
 
 
 
