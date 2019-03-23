@@ -15,6 +15,8 @@ import datetime
 import json
 import random
 import re
+import csv
+
 
 import curare_releaseView as cr_View
 
@@ -43,10 +45,11 @@ RELEASES_OPTIONS = [
 
 
 OPERATIONS_OPTIONS = [
-    {'label': 'schema_atts()',         'value': 'schema'},
-    {'label': 'count_null_values()',   'value': 'nulls' },
-    {'label': 'count_records()',   'value': 'count' },
-    {'label': 'atts_stats()',     'value': 'stats' },
+    {'label': 'VIEW["SCHEMA"]',  'value': 'schema'},
+    {'label': 'VIEW["STATS" ]',  'value': 'stats' },    
+    {'label': 'VIEW["NULLS"]',   'value': 'nulls' },
+    {'label': 'VIEW["COUNT"]',   'value': 'count' },
+    
 ]
 
 
@@ -71,6 +74,33 @@ VIEWS_SCHEMAS = {
     'R3': cr_View.getReleaseViewSchemata(VIEWS['R3'], RELEASES_FILES),
 }
 
+
+RELEASES_FILES_DATAFRAMES = {
+
+    'R1' : {
+        'Votes' :   pd.read_csv('./data/releases/jan-01-02_2018/VOTES_jan-01-02_2018.csv'),
+        'Badges':   pd.read_csv('./data/releases/jan-01-02_2018/BADGES_jan-01-02_2018.csv'),
+        'Comments': pd.read_csv('./data/releases/jan-01-02_2018/COMMENTS_jan-01-02_2018.csv'),
+        'Posts':    pd.read_csv('./data/releases/jan-01-02_2018/POSTS_jan-01-02_2018.csv'),
+        'Users':    pd.read_csv('./data/releases/jan-01-02_2018/USERS_jan-01-02_2018.csv'),
+    },
+    
+    'R2' : {
+        'Votes' :   pd.read_csv('./data/releases/jan-02-03_2018/VOTES_jan-02-03_2018.csv'),
+        'Badges':   pd.read_csv('./data/releases/jan-02-03_2018/BADGES_jan-02-03_2018.csv'),
+        'Comments': pd.read_csv('./data/releases/jan-02-03_2018/COMMENTS_jan-02-03_2018.csv'),
+        'Posts':    pd.read_csv('./data/releases/jan-02-03_2018/POSTS_jan-02-03_2018.csv'),
+        'Users':    pd.read_csv('./data/releases/jan-02-03_2018/USERS_jan-02-03_2018.csv'),
+    },
+    
+    'R3' : {
+        'Votes' :   pd.read_csv('./data/releases/jan-03-04_2018/VOTES_jan-03-04_2018.csv'),
+        'Badges':   pd.read_csv('./data/releases/jan-03-04_2018/BADGES_jan-03-04_2018.csv'),
+        'Comments': pd.read_csv('./data/releases/jan-03-04_2018/COMMENTS_jan-03-04_2018.csv'),
+        'Posts':    pd.read_csv('./data/releases/jan-03-04_2018/POSTS_jan-03-04_2018.csv', quoting=csv.QUOTE_NONE, error_bad_lines=False),
+        'Users':    pd.read_csv('./data/releases/jan-03-04_2018/USERS_jan-03-04_2018.csv'),
+    },
+}
 
 
 
@@ -128,10 +158,7 @@ def table(df):
             'backgroundColor': 'white',
             'fontWeight': 'bold'
         },
-        #style_table={
-        #    'maxHeight': '400',
-        #    'overflowY': 'scroll'
-        #},          
+        sorting=True,
     )
     
  
@@ -158,7 +185,7 @@ layout = html.Div([
         html.Div(className='three columns', children=[
             dcc.Markdown('**Release**'),
             dcc.RadioItems(id='release', options=RELEASES_OPTIONS, value='R1', style={'margin-bottom': '20'}),
-            dcc.Markdown('**Operations**'),
+            dcc.Markdown('**Views Attributes**'),
             dcc.RadioItems(id='operation', options=OPERATIONS_OPTIONS, value='schema'), 
         ]),
         
@@ -207,35 +234,67 @@ def onOperationSelected(operation, release):
             files.append  (file_name)
             schemas.append(file_atts)
         
-        
         output = []
         for i in range(len(files)):
-            output.append( dcc.Markdown('**{}**'.format(files[i])) )
-            output.append( table(pd.DataFrame(schemas[i], columns=['Attribute', 'Type']))  )
             output.append( 
-                html.Div([ 
-                    dcc.Markdown('##'),
-                ], style={'margin-bottom': '30'}),
+                dcc.Tab(
+                    label=files[i],
+                    children=table(
+                        pd.DataFrame(schemas[i], columns=['Attribute', 'Type'])
+                    )  
+                )
             )
-            
+        
+        return dcc.Tabs(id="tabs", children=output)
 
-        return output
+
 
 
     # Nulls view
     if operation == 'nulls':
         v = [sum(desc['nullValue']) for desc in VIEWS[release]['attributeDescList']],
         l = [viewFile(desc['name']) for desc in VIEWS[release]['attributeDescList']]
-        return dcc.Graph(figure=bar(v[0], l))
-
+        v = v[0]
+        
+        v = []
+        l = RELEASES_FILES
+        for f in RELEASES_FILES:
+            df = RELEASES_FILES_DATAFRAMES[release][f]
+            x  = 0
+            for col in df.columns:
+                x += df[df[col].isnull()].shape[0]
+            
+            v.append(x)
+        
+        s = 'Total Number of NULLs: ' + str( sum(v) )
+        
+        return html.Div(children=[
+            dcc.Graph(figure=bar(v, l)),
+            html.Div(dcc.Markdown(s), style={'text-align': 'center'}),
+        ])
+        
+ 
 
     # Count records
     if operation == 'count':
         v = [         desc['count'] for desc in VIEWS[release]['attributeDescList']]
         l = [viewFile(desc['name']) for desc in VIEWS[release]['attributeDescList']]
-        return dcc.Graph(figure=bar(v, l))
+        
+        v = []
+        l = RELEASES_FILES
+        for f in RELEASES_FILES:
+            v.append( RELEASES_FILES_DATAFRAMES[release][f].shape[0] )
+        
+        s = 'Total Number of Records: ' + str(sum(v))
+        
+        return html.Div(children=[
+            dcc.Graph(figure=bar(v, l)),
+            html.Div( dcc.Markdown(s) , style={'text-align': 'center'}),   
+        ])
+        
+        
 
-    
+
     if operation == 'stats':
 
         obj = {
@@ -250,8 +309,6 @@ def onOperationSelected(operation, release):
         output = []
         for i in range(len(obj['name'])):
         
-            output.append( dcc.Markdown('**{}**'.format(obj['name'][i])) )
-
             file_atts=[]
             for att_schema in VIEWS_SCHEMAS[release][i][1]: 
                 for v in att_schema.values():
@@ -266,15 +323,15 @@ def onOperationSelected(operation, release):
                 'nulls'  : obj['nulls'][i]
             }        
             
-            output.append( table(pd.DataFrame(obj2)) )
-
             output.append( 
-                html.Div([ 
-                    dcc.Markdown('##'),
-                ], style={'margin-bottom': '30'}),
+                dcc.Tab(
+                    label=obj['name'][i],
+                    children=table( pd.DataFrame(obj2) )  
+                )
             )
-          
-        return output
+        
+        return dcc.Tabs(id="tabs", children=output)        
+
 
 
     return []

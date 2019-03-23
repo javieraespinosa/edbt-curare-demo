@@ -197,7 +197,7 @@ def tab(df):
 
 
 
-
+'''
 RELEASES_FILES_TABS = {
 
     'R1' : {
@@ -237,7 +237,7 @@ RELEASES_FILES_TABS = {
         'Users':    tab(RELEASES_FILES_DATAFRAMES['R1']['Users']),
     },
 }
-'''
+#'''
 
 
 MD_TEXT = {
