@@ -113,7 +113,7 @@ QUESTIONS = [
     'Q1. Which release has the most number of records?',
     'Q2. Which is the release with best quality? (fewest null values)',
     'Q3. Which **Posts** attribute(s) help to identify the **most trendy topic** in a release?',
-    'Q4: Which are the **attributes** to be used for identifying the **top 10 users** with the highest **reputation**?',
+    'Q4. In which release is **USERS** most **evenly distributed**?',
     'Q5. Which is/are the attribute(s) useful to identify the most trendy topic addressed in the release?',
     'Q6. Which attributes can be used as **sharding keys** to fragment releases using an **interval based strategy**?',
 ]
