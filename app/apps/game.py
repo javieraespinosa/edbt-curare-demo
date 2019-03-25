@@ -110,11 +110,11 @@ Q_SLIDER_MARKS = {
 QUESTIONS_LABELS = [ 'Q' + str(i+1) for i in range(6) ]
 
 QUESTIONS = [
-    'Q1. Which release has the most number of records?',
-    'Q2. Which is the release with best quality? (fewest null values)',
+    'Q1. Which release has the **most number of records**?',
+    'Q2. Which is the release with best quality? (**fewest null values**)',
     'Q3. Which **Posts** attribute(s) help to identify the **most trendy topic** in a release?',
-    'Q4. In which release is **USERS** most **evenly distributed**?',
-    'Q5. Which is/are the attribute(s) useful to identify the most trendy topic addressed in the release?',
+    'Q4. In which release **USERS.location** is most **evenly distributed**?',
+    'Q5. Which attribute(s) help identify the **USERS** with the **highest reputation**?',
     'Q6. Which attributes can be used as **sharding keys** to fragment releases using an **interval based strategy**?',
 ]
 
@@ -287,7 +287,7 @@ def bar(name1, values1, name2, values2):
             go.Bar(
                 x=QUESTIONS_LABELS,
                 y=values2,
-                text=[ str(y)+'s' for y in values1],
+                text=[ str(y)+'s' for y in values2],
                 textposition = 'auto',
                 name=name2
             )
@@ -484,7 +484,7 @@ from app import app
 layout = html.Div([
     html.Div(id='main-div', children=message('', '')),
     html.Div(id='context',  children=None,       style={'display': 'none'}),
-    html.Button(id='button_end', children='End', style={'display': 'block'}),
+    html.Button(id='button_end', children='End', style={'display': 'none'}),
 ], className='container')
 
 
@@ -614,7 +614,7 @@ def onClick(button, button_end, timestamp, q_effort, q_release, q_badges, q_comm
             context['Q_TIMES']  [context['Q']] = (timestamp-context['PREV_TS'])/1000
             context['Q_SCORES'] [context['Q']] = score( values[context['Q']%6], ANSWERS[context['Q']%6] )
             
-            print(context['Q_VALUES'][context['Q']], context['Q_EFFORTS'][context['Q']], context['Q_TIMES'][context['Q']], context['Q_SCORES'] [context['Q']])
+            #print(context['Q_VALUES'][context['Q']], context['Q_EFFORTS'][context['Q']], context['Q_TIMES'][context['Q']], context['Q_SCORES'] [context['Q']])
             
             context['Q'] += 1
 

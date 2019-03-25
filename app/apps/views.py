@@ -46,9 +46,9 @@ RELEASES_OPTIONS = [
 
 OPERATIONS_OPTIONS = [
     {'label': 'VIEW["SCHEMA"]',  'value': 'schema'},
-    {'label': 'VIEW["STATS" ]',  'value': 'stats' },    
-    {'label': 'VIEW["NULLS"]',   'value': 'nulls' },
     {'label': 'VIEW["COUNT"]',   'value': 'count' },
+    {'label': 'VIEW["NULLS"]',   'value': 'nulls' },
+    {'label': 'VIEW["STATS" ]',  'value': 'stats' },    
     {'label': 'VIEW["DISTR"]',   'value': 'histo' },
     
 ]
