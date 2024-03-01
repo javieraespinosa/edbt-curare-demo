@@ -5,7 +5,7 @@ matplotlib==3.0.3
 plotly==3.7.0
 PyQt5==5.12
 dash==0.39.0
-dash-html-components==0.14.0
+dash-html-components==2.0.0
 dash-core-components==0.44.0
 dash-table==3.6.0
 dash-daq==0.1.0
